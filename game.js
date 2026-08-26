@@ -1,150 +1,154 @@
-setInterval(()=>{
-    if(
-        typeof state!=='undefined' &&
-        state.phase==='complete'
-    ){
-        messageEl.textContent=
-            'OVER COMPLETED! GOOD TRY!';
-    }
-},100);
-
 import * as THREE from 'three';
-import{GLTFLoader}from'three/addons/loaders/GLTFLoader.js';
-
-setInterval(()=>{
-    if(
-        typeof state!=='undefined' &&
-        state.phase==='complete'
-    ){
-        playAgainButton.style.display='block';
-    }
-},100);
-
-const $=s=>document.querySelector(s);
-
-const scoreEl=$('#score');
-const wicketEl=$('#wicket');
-const ballEl=$('#ballNumber');
-const messageEl=$('#message');
-const bowlButton=$('#bowlButton');
-const playAgainButton=$('#playAgainButton');
-const loadingEl=$('#loading');
-const errorEl=$('#error');
+import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 
 
-/* ============================================================
-   OVER AUDIO
-============================================================ */
-
-let overAudioPlayed=false;
-
-function announceOverComplete(){
-
-    if(overAudioPlayed)return;
-
-    overAudioPlayed=true;
-
-    if("speechSynthesis" in window){
-
-        window.speechSynthesis.cancel();
-
-        const utterance=
-            new SpeechSynthesisUtterance(
-                "Over completed. Good try!"
-            );
-
-        utterance.rate=.9;
-        utterance.pitch=1;
-        utterance.volume=1;
-
-        window.speechSynthesis.speak(
-            utterance
-        );
-
-    }
-
-}
+/* =========================================================
+   HAND CRICKET AI - GESTURE VERSION
+   1 = 1 RUN
+   2 = 2 RUNS
+   4 = FOUR
+   6 = SIX
+   NO GESTURE = WICKET
+========================================================= */
 
 
-/* ============================================================
+/* =========================================================
+   DOM
+========================================================= */
+
+const $ = (selector) =>
+    document.querySelector(selector);
+
+const scoreEl =
+    $('#score');
+
+const wicketEl =
+    $('#wicket');
+
+const ballEl =
+    $('#ballNumber');
+
+const messageEl =
+    $('#message');
+
+const bowlButton =
+    $('#bowlButton');
+
+const playAgainButton =
+    $('#playAgainButton');
+
+const loadingEl =
+    $('#loading');
+
+const errorEl =
+    $('#error');
+
+
+/* =========================================================
    GAME STATE
-============================================================ */
+========================================================= */
 
-const state={
+const state = {
 
-    score:0,
+    score: 0,
 
-    wickets:0,
+    wickets: 0,
 
-    // CHANGE 1:
-    // Game starts at 0/6
-    ball:0,
+    ball: 1,
 
-    totalBalls:6,
+    totalBalls: 6,
 
-    phase:'ready',
+    phase: 'ready',
 
-    time:0,
+    time: 0,
 
-    shotTriggered:false,
+    shotTriggered: false,
 
-    ballReleased:false,
+    ballReleased: false,
 
-    currentRuns:1,
+    currentRuns: 0,
 
-    // 0 = no hand gesture
-    shotGesture:0,
+    /*
+       IMPORTANT:
+       This is now controlled by the camera.
+       It is NOT randomly selected.
+    */
+    shotGesture: 0,
 
-    cameraReady:false,
+    cameraReady: false,
 
-    handDetected:false,
+    handDetected: false,
 
-    lastHandSeen:0,
+    lastHandSeen: 0,
 
-    out:false
+    out: false
 
 };
 
 
-/* ============================================================
-   HAND GESTURE
-============================================================ */
+/* =========================================================
+   CAMERA GESTURE EVENT
+========================================================= */
 
 window.addEventListener(
     'cricket:camera-gesture',
-    event=>{
+    (event) => {
 
-        if(
-            state.phase==='run' &&
-            event.detail?.gesture
-        ){
+        if (
+            state.phase !== 'run'
+        ) {
+            return;
+        }
 
-            state.shotGesture=
-                event.detail.gesture;
+        const gesture =
+            Number(event.detail?.gesture);
 
-            state.handDetected=true;
+        if (
+            [1, 2, 4, 6].includes(gesture)
+        ) {
 
-            state.lastHandSeen=
+            state.shotGesture =
+                gesture;
+
+            state.handDetected =
+                true;
+
+            state.lastHandSeen =
                 performance.now();
+
+            console.log(
+                '🏏 GESTURE DETECTED:',
+                gesture
+            );
+
+            messageEl.textContent =
+                `Gesture ${gesture} detected`;
 
         }
 
     }
 );
 
+
+/* =========================================================
+   CAMERA PRESENCE
+========================================================= */
 
 window.addEventListener(
     'cricket:camera-presence',
-    event=>{
+    (event) => {
 
-        state.cameraReady=
-            event.detail?.available===true;
+        state.cameraReady =
+            event.detail?.available === true;
 
-        if(event.detail?.detected){
+        if (
+            event.detail?.detected
+        ) {
 
-            state.handDetected=true;
+            state.handDetected =
+                true;
 
-            state.lastHandSeen=
+            state.lastHandSeen =
                 performance.now();
 
         }
@@ -153,58 +157,88 @@ window.addEventListener(
 );
 
 
-/* ============================================================
+/* =========================================================
+   WICKET EVENT
+========================================================= */
+
+window.addEventListener(
+    'cricket:wicket',
+    () => {
+
+        state.score = 0;
+
+        state.wickets++;
+
+        state.out = true;
+
+        messageEl.textContent =
+            'OUT! ❌';
+
+        messageEl.classList.add(
+            'out-message'
+        );
+
+        scoreEl.textContent =
+            state.score;
+
+        wicketEl.textContent =
+            state.wickets;
+
+    }
+);
+
+
+/* =========================================================
    PLAY AGAIN
-============================================================ */
+========================================================= */
 
 playAgainButton.addEventListener(
     'click',
-    ()=>{
+    () => {
 
-        state.score=0;
+        state.score = 0;
 
-        state.wickets=0;
+        state.wickets = 0;
 
-        // CHANGE 1:
-        // Reset to 0/6
-        state.ball=0;
+        state.ball = 1;
 
-        state.phase='ready';
+        state.phase = 'ready';
 
-        state.time=0;
+        state.time = 0;
 
-        state.shotTriggered=false;
+        state.shotTriggered = false;
 
-        state.ballReleased=false;
+        state.ballReleased = false;
 
-        state.shotGesture=0;
+        state.out = false;
 
-        state.handDetected=false;
+        state.shotGesture = 0;
 
-        state.lastHandSeen=0;
+        state.handDetected = false;
 
-        state.out=false;
+        state.lastHandSeen = 0;
 
-        overAudioPlayed=false;
+        scoreEl.textContent =
+            '0';
 
-        scoreEl.textContent='0';
+        wicketEl.textContent =
+            '0';
 
-        wicketEl.textContent='0';
+        ballEl.textContent =
+            '1/6';
 
-        // CHANGE 1:
-        ballEl.textContent='0/6';
-
-        messageEl.textContent=
+        messageEl.textContent =
             'Ready for next ball';
 
         messageEl.classList.remove(
             'out-message'
         );
 
-        playAgainButton.style.display=
+        playAgainButton.style.display =
             'none';
 
-        bowlButton.disabled=false;
+        bowlButton.disabled =
+            false;
 
         bowlerRoot.add(ball);
 
@@ -214,25 +248,26 @@ playAgainButton.addEventListener(
             .35
         );
 
-        ball.visible=false;
+        ball.visible =
+            false;
 
     }
 );
 
 
-/* ============================================================
-   SCENE
-============================================================ */
+/* =========================================================
+   THREE.JS SCENE
+========================================================= */
 
-const scene=
+const scene =
     new THREE.Scene();
 
-scene.background=
+scene.background =
     new THREE.Color(
         0x071a2a
     );
 
-scene.fog=
+scene.fog =
     new THREE.Fog(
         0x071a2a,
         30,
@@ -240,14 +275,14 @@ scene.fog=
     );
 
 
-/* ============================================================
+/* =========================================================
    CAMERA
-============================================================ */
+========================================================= */
 
-const camera=
+const camera =
     new THREE.PerspectiveCamera(
         46,
-        innerWidth/innerHeight,
+        innerWidth / innerHeight,
         .1,
         180
     );
@@ -265,18 +300,15 @@ camera.lookAt(
 );
 
 
-/* ============================================================
+/* =========================================================
    RENDERER
-============================================================ */
+========================================================= */
 
-const renderer=
+const renderer =
     new THREE.WebGLRenderer({
-
-        antialias:true,
-
+        antialias: true,
         powerPreference:
             'high-performance'
-
     });
 
 renderer.setSize(
@@ -291,18 +323,19 @@ renderer.setPixelRatio(
     )
 );
 
-renderer.shadowMap.enabled=true;
+renderer.shadowMap.enabled =
+    true;
 
-renderer.shadowMap.type=
+renderer.shadowMap.type =
     THREE.PCFSoftShadowMap;
 
-renderer.outputColorSpace=
+renderer.outputColorSpace =
     THREE.SRGBColorSpace;
 
-renderer.toneMapping=
+renderer.toneMapping =
     THREE.ACESFilmicToneMapping;
 
-renderer.toneMappingExposure=
+renderer.toneMappingExposure =
     1.1;
 
 $('#game').append(
@@ -310,9 +343,9 @@ $('#game').append(
 );
 
 
-/* ============================================================
+/* =========================================================
    LIGHTING
-============================================================ */
+========================================================= */
 
 scene.add(
     new THREE.HemisphereLight(
@@ -322,8 +355,7 @@ scene.add(
     )
 );
 
-
-const sun=
+const sun =
     new THREE.DirectionalLight(
         0xffe6c4,
         3.6
@@ -335,22 +367,32 @@ sun.position.set(
     9
 );
 
-sun.castShadow=true;
+sun.castShadow =
+    true;
 
 sun.shadow.mapSize.set(
     2048,
     2048
 );
 
-sun.shadow.camera.left=-32;
-sun.shadow.camera.right=32;
-sun.shadow.camera.top=30;
-sun.shadow.camera.bottom=-30;
+sun.shadow.camera.left =
+    -32;
 
-scene.add(sun);
+sun.shadow.camera.right =
+    32;
+
+sun.shadow.camera.top =
+    30;
+
+sun.shadow.camera.bottom =
+    -30;
+
+scene.add(
+    sun
+);
 
 
-const fill=
+const fill =
     new THREE.DirectionalLight(
         0x7dbbff,
         1.5
@@ -373,33 +415,33 @@ scene.add(
             16
         ),
         new THREE.MeshBasicMaterial({
-            color:0x081d34,
-            side:THREE.BackSide
+            color: 0x081d34,
+            side: THREE.BackSide
         })
     )
 );
 
 
-/* ============================================================
+/* =========================================================
    MATERIAL
-============================================================ */
+========================================================= */
 
-const material=
-    (c,r=.72)=>
+const material =
+    (
+        color,
+        roughness = .72
+    ) =>
         new THREE.MeshStandardMaterial({
-
-            color:c,
-
-            roughness:r
-
+            color,
+            roughness
         });
 
 
-/* ============================================================
+/* =========================================================
    GRASS
-============================================================ */
+========================================================= */
 
-const grass=
+const grass =
     new THREE.Mesh(
         new THREE.PlaneGeometry(
             120,
@@ -411,53 +453,62 @@ const grass=
         )
     );
 
-grass.rotation.x=
-    -Math.PI/2;
+grass.rotation.x =
+    -Math.PI / 2;
 
-grass.receiveShadow=true;
+grass.receiveShadow =
+    true;
 
-scene.add(grass);
+scene.add(
+    grass
+);
 
 
-for(
-    let x=-48;
-    x<48;
-    x+=8
-){
+/* =========================================================
+   GRASS STRIPES
+========================================================= */
 
-    const s=
+for (
+    let x = -48;
+    x < 48;
+    x += 8
+) {
+
+    const stripe =
         new THREE.Mesh(
             new THREE.PlaneGeometry(
                 4,
                 120
             ),
             material(
-                x%16
-                    ?0x398842
-                    :0x317638,
+                x % 16
+                    ? 0x398842
+                    : 0x317638,
                 1
             )
         );
 
-    s.rotation.x=
-        -Math.PI/2;
+    stripe.rotation.x =
+        -Math.PI / 2;
 
-    s.position.set(
+    stripe.position.set(
         x,
         .006,
         0
     );
 
-    scene.add(s);
+    scene.add(
+        stripe
+    );
 
 }
 
 
-/* ============================================================
+/* =========================================================
    PITCH
-============================================================ */
+========================================================= */
 
-const pitch=
+const pitch =
     new THREE.Mesh(
         new THREE.BoxGeometry(
             5.5,
@@ -476,18 +527,25 @@ pitch.position.set(
     -3
 );
 
-pitch.receiveShadow=true;
+pitch.receiveShadow =
+    true;
 
-scene.add(pitch);
+scene.add(
+    pitch
+);
 
 
-for(
-    let z=-21;
-    z<16;
-    z+=1.6
-){
+/* =========================================================
+   PITCH MARKINGS
+========================================================= */
 
-    const l=
+for (
+    let z = -21;
+    z < 16;
+    z += 1.6
+) {
+
+    const line =
         new THREE.Mesh(
             new THREE.BoxGeometry(
                 5.3,
@@ -500,87 +558,93 @@ for(
             )
         );
 
-    l.position.set(
+    line.position.set(
         0,
         .13,
         z
     );
 
-    scene.add(l);
+    scene.add(
+        line
+    );
 
 }
 
 
-/* ============================================================
+/* =========================================================
    HELPER
-============================================================ */
+========================================================= */
 
 function part(
-    p,
-    g,
-    m,
+    parent,
+    geometry,
+    mat,
     x,
     y,
     z
-){
+) {
 
-    const o=
+    const object =
         new THREE.Mesh(
-            g,
-            m
+            geometry,
+            mat
         );
 
-    o.position.set(
+    object.position.set(
         x,
         y,
         z
     );
 
-    o.castShadow=true;
+    object.castShadow =
+        true;
 
-    o.receiveShadow=true;
+    object.receiveShadow =
+        true;
 
-    p.add(o);
+    parent.add(
+        object
+    );
 
-    return o;
+    return object;
 
 }
 
 
-/* ============================================================
+/* =========================================================
    WICKET
-============================================================ */
+========================================================= */
 
-function wicket(z){
+function wicket(z) {
 
-    const g=
+    const group =
         new THREE.Group();
 
-    const w=
+    const wood =
         material(
             0xf0e4bd,
             .5
         );
 
-    const r=
+    const red =
         material(
             0xc62d2e,
             .5
         );
 
 
-    [-.24,0,.24].forEach(
-        x=>{
+    [-.24, 0, .24].forEach(
+        (x) => {
 
             part(
-                g,
+                group,
                 new THREE.CylinderGeometry(
                     .045,
                     .05,
                     1.2,
                     12
                 ),
-                w,
+                wood,
                 x,
                 .72,
                 0
@@ -590,51 +654,54 @@ function wicket(z){
     );
 
 
-    [-.12,.12].forEach(
-        x=>{
+    [-.12, .12].forEach(
+        (x) => {
 
-            const b=
+            const bail =
                 part(
-                    g,
+                    group,
                     new THREE.CylinderGeometry(
                         .035,
                         .035,
                         .3,
                         10
                     ),
-                    w,
+                    wood,
                     x,
                     1.34,
                     0
                 );
 
-            b.rotation.z=
-                Math.PI/2;
+            bail.rotation.z =
+                Math.PI / 2;
 
         }
     );
 
 
     part(
-        g,
+        group,
         new THREE.BoxGeometry(
             .62,
             .06,
             .08
         ),
-        r,
+        red,
         0,
         .2,
         0
     );
 
 
-    g.position.z=z;
+    group.position.z =
+        z;
 
-    scene.add(g);
+    scene.add(
+        group
+    );
 
 
-    const c=
+    const crease =
         new THREE.Mesh(
             new THREE.BoxGeometry(
                 5,
@@ -647,13 +714,20 @@ function wicket(z){
             )
         );
 
-    c.position.set(
+    crease.position.set(
         0,
         .16,
-        z+(z>0?.55:-.55)
+        z +
+            (
+                z > 0
+                    ? .55
+                    : -.55
+            )
     );
 
-    scene.add(c);
+    scene.add(
+        crease
+    );
 
 }
 
@@ -663,11 +737,11 @@ wicket(7.1);
 wicket(-13.5);
 
 
-/* ============================================================
-   BOWLER / UMPIRE
-============================================================ */
+/* =========================================================
+   BOWLER
+========================================================= */
 
-const bowlerRoot=
+const bowlerRoot =
     new THREE.Group();
 
 bowlerRoot.position.set(
@@ -676,10 +750,16 @@ bowlerRoot.position.set(
     -19
 );
 
-scene.add(bowlerRoot);
+scene.add(
+    bowlerRoot
+);
 
 
-const umpireRoot=
+/* =========================================================
+   UMPIRE
+========================================================= */
+
+const umpireRoot =
     new THREE.Group();
 
 umpireRoot.position.set(
@@ -688,19 +768,22 @@ umpireRoot.position.set(
     -15
 );
 
-scene.add(umpireRoot);
+scene.add(
+    umpireRoot
+);
 
 
-/* ============================================================
-   BAT
-============================================================ */
+/* =========================================================
+   CRICKET BAT
+========================================================= */
 
 function createProfessionalCricketBat(
     batsmanModel
-){
+) {
 
-    let leftHand,
-        rightHand;
+    let leftHand;
+
+    let rightHand;
 
 
     batsmanModel.updateMatrixWorld(
@@ -709,28 +792,44 @@ function createProfessionalCricketBat(
 
 
     batsmanModel.traverse(
-        object=>{
+        (object) => {
 
-            if(!object.isMesh)return;
-
-
-            if(object.name==='GloveL')
-                leftHand=object;
-
-            if(object.name==='GloveR')
-                rightHand=object;
+            if (
+                !object.isMesh
+            ) {
+                return;
+            }
 
 
-            const name=
+            if (
+                object.name ===
+                'GloveL'
+            ) {
+                leftHand =
+                    object;
+            }
+
+
+            if (
+                object.name ===
+                'GloveR'
+            ) {
+                rightHand =
+                    object;
+            }
+
+
+            const name =
                 object.name.toLowerCase();
 
 
-            if(
+            if (
                 /bat|blade|handle|grip|cricket_pullshot/
                     .test(name)
-            ){
+            ) {
 
-                object.visible=false;
+                object.visible =
+                    false;
 
             }
 
@@ -738,7 +837,7 @@ function createProfessionalCricketBat(
     );
 
 
-    const handMidpoint=
+    const handMidpoint =
         new THREE.Vector3(
             0,
             1.55,
@@ -746,21 +845,26 @@ function createProfessionalCricketBat(
         );
 
 
-    if(
+    if (
         leftHand &&
         rightHand
-    ){
+    ) {
 
-        const left=
+        const left =
             new THREE.Box3()
-                .setFromObject(leftHand)
+                .setFromObject(
+                    leftHand
+                )
                 .getCenter(
                     new THREE.Vector3()
                 );
 
-        const right=
+
+        const right =
             new THREE.Box3()
-                .setFromObject(rightHand)
+                .setFromObject(
+                    rightHand
+                )
                 .getCenter(
                     new THREE.Vector3()
                 );
@@ -779,10 +883,10 @@ function createProfessionalCricketBat(
     }
 
 
-    const batPivot=
+    const batPivot =
         new THREE.Group();
 
-    batPivot.name=
+    batPivot.name =
         'BatHandPivot';
 
     batPivot.position.copy(
@@ -794,16 +898,16 @@ function createProfessionalCricketBat(
     );
 
 
-    batPivot.rotation.z=
+    batPivot.rotation.z =
         THREE.MathUtils.degToRad(
             -27
         );
 
 
-    const cricketBat=
+    const cricketBat =
         new THREE.Group();
 
-    cricketBat.name=
+    cricketBat.name =
         'CricketBat';
 
     batPivot.add(
@@ -811,31 +915,31 @@ function createProfessionalCricketBat(
     );
 
 
-    const wood=
+    const wood =
         material(
             0xd99b55,
             .55
         );
 
-    const edge=
+    const edge =
         material(
             0xa86e36,
             .62
         );
 
-    const handleWood=
+    const handleWood =
         material(
             0x8b552f,
             .6
         );
 
-    const grip=
+    const grip =
         material(
             0x25282c,
             .88
         );
 
-    const rings=
+    const rings =
         material(
             0x111316,
             .9
@@ -853,7 +957,7 @@ function createProfessionalCricketBat(
         0,
         -.88,
         0
-    ).name=
+    ).name =
         'ProfessionalBatBlade';
 
 
@@ -929,13 +1033,13 @@ function createProfessionalCricketBat(
     );
 
 
-    for(
-        let index=0;
-        index<7;
+    for (
+        let index = 0;
+        index < 7;
         index++
-    ){
+    ) {
 
-        const ring=
+        const ring =
             new THREE.Mesh(
                 new THREE.TorusGeometry(
                     .075,
@@ -946,13 +1050,16 @@ function createProfessionalCricketBat(
                 rings
             );
 
-        ring.position.y=
-            .02+
-            index*.06;
+        ring.position.y =
+            .02 +
+            index * .06;
 
-        ring.castShadow=true;
+        ring.castShadow =
+            true;
 
-        cricketBat.add(ring);
+        cricketBat.add(
+            ring
+        );
 
     }
 
@@ -971,7 +1078,7 @@ function createProfessionalCricketBat(
     );
 
 
-    batsmanModel.userData.cricketBat=
+    batsmanModel.userData.cricketBat =
         batPivot;
 
 
@@ -980,17 +1087,17 @@ function createProfessionalCricketBat(
 }
 
 
-/* ============================================================
+/* =========================================================
    HUMAN PLACEMENT
-============================================================ */
+========================================================= */
 
 function placeHuman(
     model,
     anchor,
     position,
     height,
-    rotationY=0
-){
+    rotationY = 0
+) {
 
     model.position.set(
         0,
@@ -1011,53 +1118,65 @@ function placeHuman(
     );
 
 
-    const box=
+    const box =
         new THREE.Box3()
-            .setFromObject(model);
+            .setFromObject(
+                model
+            );
 
-    const size=
+
+    const size =
         box.getSize(
             new THREE.Vector3()
         );
 
 
     model.scale.setScalar(
-        height/size.y
+        height / size.y
     );
 
 
-    const scaled=
+    const scaled =
         new THREE.Box3()
-            .setFromObject(model);
+            .setFromObject(
+                model
+            );
 
-    const center=
+
+    const center =
         scaled.getCenter(
             new THREE.Vector3()
         );
 
 
     model.position.set(
-        position.x-center.x,
-        position.y-scaled.min.y,
-        position.z-center.z
+        position.x - center.x,
+        position.y - scaled.min.y,
+        position.z - center.z
     );
 
 
-    model.rotation.y=
+    model.rotation.y =
         rotationY;
 
 
-    anchor.add(model);
+    anchor.add(
+        model
+    );
 
 
     model.traverse(
-        o=>{
+        (object) => {
 
-            if(o.isMesh){
+            if (
+                object.isMesh
+            ) {
 
-                o.castShadow=true;
+                object.castShadow =
+                    true;
 
-                o.receiveShadow=true;
+                object.receiveShadow =
+                    true;
 
             }
 
@@ -1065,10 +1184,10 @@ function placeHuman(
     );
 
 
-    if(
-        anchor===scene &&
-        height===3.2
-    ){
+    if (
+        anchor === scene &&
+        height === 3.2
+    ) {
 
         createProfessionalCricketBat(
             model
@@ -1079,29 +1198,34 @@ function placeHuman(
 }
 
 
-/* ============================================================
-   PLAYER LOADING
-============================================================ */
+/* =========================================================
+   PLAYER MODELS
+========================================================= */
 
-let batsman,
-    mixer,
-    actions=[],
-    batsmanBat,
-    bowlerMixer,
-    bowlerActions=[];
+let batsman;
 
-let loadedPlayers=0;
+let mixer;
+
+let actions = [];
+
+let batsmanBat;
+
+let bowlerMixer;
+
+let bowlerActions = [];
+
+let loadedPlayers = 0;
 
 
-const playerFiles=[
+const playerFiles = [
 
     [
         'models/batsman.glb',
         scene,
         {
-            x:-1.45,
-            y:0,
-            z:2.05
+            x: -1.45,
+            y: 0,
+            z: 2.05
         },
         3.2,
         Math.PI,
@@ -1112,9 +1236,9 @@ const playerFiles=[
         'models/bowler.glb',
         bowlerRoot,
         {
-            x:0,
-            y:0,
-            z:0
+            x: 0,
+            y: 0,
+            z: 0
         },
         3.1,
         Math.PI,
@@ -1125,9 +1249,9 @@ const playerFiles=[
         'models/umpire.glb',
         umpireRoot,
         {
-            x:0,
-            y:0,
-            z:0
+            x: 0,
+            y: 0,
+            z: 0
         },
         2.6,
         Math.PI,
@@ -1137,24 +1261,30 @@ const playerFiles=[
 ];
 
 
+/* =========================================================
+   LOAD PLAYERS
+========================================================= */
+
 playerFiles.forEach(
-    ([
-        file,
-        anchor,
-        position,
-        height,
-        rotation,
-        name
-    ])=>{
+    (
+        [
+            file,
+            anchor,
+            position,
+            height,
+            rotation,
+            name
+        ]
+    ) => {
 
         new GLTFLoader().load(
 
             file,
 
-            g=>{
+            (gltf) => {
 
-                const model=
-                    g.scene;
+                const model =
+                    gltf.scene;
 
 
                 placeHuman(
@@ -1166,60 +1296,75 @@ playerFiles.forEach(
                 );
 
 
-                if(name==='batsman'){
+                if (
+                    name === 'batsman'
+                ) {
 
-                    batsman=model;
+                    batsman =
+                        model;
 
-                    mixer=
+
+                    mixer =
                         new THREE.AnimationMixer(
                             model
                         );
 
 
-                    const shotClips=
-                        g.animations.filter(
-                            a=>
+                    const shotClips =
+                        gltf.animations.filter(
+                            animation =>
                                 /bat|swing|shot|hit/i
-                                    .test(a.name)
+                                    .test(
+                                        animation.name
+                                    )
                         );
 
 
-                    actions=
+                    actions =
                         (
                             shotClips.length
-                            ?
-                            shotClips
-                            :
-                            g.animations
+                                ? shotClips
+                                : gltf.animations
                         ).map(
-                            a=>
-                                mixer.clipAction(a)
+                            animation =>
+                                mixer.clipAction(
+                                    animation
+                                )
                         );
+
+
+                    batsmanBat =
+                        model.userData.cricketBat;
 
                 }
 
 
-                if(
-                    name==='bowler' &&
-                    g.animations.length
-                ){
+                if (
+                    name === 'bowler' &&
+                    gltf.animations.length
+                ) {
 
-                    bowlerMixer=
+                    bowlerMixer =
                         new THREE.AnimationMixer(
                             model
                         );
 
 
-                    bowlerActions=
-                        g.animations
+                    bowlerActions =
+                        gltf.animations
                             .filter(
-                                a=>
+                                animation =>
                                     /bowl|run|throw|delivery/i
-                                        .test(a.name)
+                                        .test(
+                                            animation.name
+                                        )
                             )
                             .map(
-                                a=>
-                                    bowlerMixer.clipAction(a)
+                                animation =>
+                                    bowlerMixer
+                                        .clipAction(
+                                            animation
+                                        )
                             );
 
                 }
@@ -1228,14 +1373,21 @@ playerFiles.forEach(
                 loadedPlayers++;
 
 
-                if(
-                    loadedPlayers===
+                if (
+                    loadedPlayers ===
                     playerFiles.length
-                ){
+                ) {
 
-                    loadingEl.remove();
+                    if (
+                        loadingEl
+                    ) {
 
-                    bowlButton.disabled=false;
+                        loadingEl.remove();
+
+                    }
+
+                    bowlButton.disabled =
+                        false;
 
                 }
 
@@ -1243,23 +1395,39 @@ playerFiles.forEach(
 
             undefined,
 
-            e=>{
+            (error) => {
 
                 console.error(
                     `Could not load ${file}`,
-                    e
+                    error
                 );
 
-                loadingEl.textContent=
-                    `Could not load ${name}.glb`;
 
-                errorEl.textContent=
-                    `Could not load ${name}.glb`;
+                if (
+                    loadingEl
+                ) {
 
-                errorEl.style.display=
-                    'block';
+                    loadingEl.textContent =
+                        `Could not load ${name}.glb`;
 
-                bowlButton.disabled=false;
+                }
+
+
+                if (
+                    errorEl
+                ) {
+
+                    errorEl.textContent =
+                        `Could not load ${name}.glb`;
+
+                    errorEl.style.display =
+                        'block';
+
+                }
+
+
+                bowlButton.disabled =
+                    false;
 
             }
 
@@ -1269,14 +1437,14 @@ playerFiles.forEach(
 );
 
 
-/* ============================================================
+/* =========================================================
    BALL
-============================================================ */
+========================================================= */
 
-const ball=
+const ball =
     new THREE.Group();
 
-ball.name=
+ball.name =
     'DeliveryBall';
 
 
@@ -1297,7 +1465,7 @@ part(
 );
 
 
-const seam=
+const seam =
     new THREE.Mesh(
         new THREE.TorusGeometry(
             .162,
@@ -1311,13 +1479,17 @@ const seam=
         )
     );
 
+seam.rotation.x =
+    Math.PI / 2;
 
-seam.rotation.x=
-    Math.PI/2;
+ball.add(
+    seam
+);
 
-ball.add(seam);
 
-ball.visible=false;
+ball.visible =
+    false;
+
 
 ball.position.set(
     .58,
@@ -1325,13 +1497,17 @@ ball.position.set(
     .35
 );
 
-bowlerRoot.add(ball);
 
-bowlerRoot.userData.deliveryBall=
+bowlerRoot.add(
+    ball
+);
+
+
+bowlerRoot.userData.deliveryBall =
     ball;
 
 
-const ballTarget=
+const ballTarget =
     new THREE.Vector3(
         -.8,
         1.38,
@@ -1339,107 +1515,164 @@ const ballTarget=
     );
 
 
-const releasePosition=
-    new THREE.Vector3();
-
-const flightStart=
+const releasePosition =
     new THREE.Vector3();
 
 
-/* ============================================================
+const flightStart =
+    new THREE.Vector3();
+
+
+/* =========================================================
    BAT SWING
-============================================================ */
+========================================================= */
 
-function swing(){
+function swing() {
 
-    if(
-        !batsmanBat ||
-        !batsmanBat.visible
-    ){
+    if (
+        !batsmanBat
+    ) {
+
+        console.warn(
+            'No cricket bat found'
+        );
 
         return;
 
     }
 
 
-    const startZ=
+    const startZ =
         batsmanBat.rotation.z;
 
-    const startX=
+    const startX =
         batsmanBat.rotation.x;
 
-    const startY=
+    const startY =
         batsmanBat.rotation.y;
 
 
-    const angle=
-        state.shotGesture===6
-        ?1.9
-        :
-        state.shotGesture===4
-        ?1.05
-        :
-        1.35;
+    let angle;
+
+    let twist;
 
 
-    const twist=
-        state.shotGesture===6
-        ?.34
-        :
-        state.shotGesture===4
-        ?-.22
-        :
-        .2;
+    switch (
+        state.shotGesture
+    ) {
+
+        case 6:
+
+            angle =
+                1.9;
+
+            twist =
+                .34;
+
+            break;
 
 
-    const t0=
+        case 4:
+
+            angle =
+                1.05;
+
+            twist =
+                -.22;
+
+            break;
+
+
+        case 2:
+
+            angle =
+                1.35;
+
+            twist =
+                .12;
+
+            break;
+
+
+        case 1:
+
+            angle =
+                1.25;
+
+            twist =
+                .2;
+
+            break;
+
+
+        default:
+
+            angle =
+                1.2;
+
+            twist =
+                .1;
+
+    }
+
+
+    const startTime =
         performance.now();
 
 
-    const f=
-        n=>{
+    const animateSwing =
+        (now) => {
 
-            const t=
+            const t =
                 Math.min(
-                    (n-t0)/620,
+                    (now - startTime) /
+                    620,
                     1
                 );
 
 
-            const e=
+            const easing =
                 Math.sin(
-                    t*Math.PI
+                    t * Math.PI
                 );
 
 
-            const follow=
+            const follow =
                 Math.sin(
-                    t*Math.PI*2
+                    t * Math.PI * 2
                 );
 
 
-            batsmanBat.rotation.z=
-                startZ-e*angle;
+            batsmanBat.rotation.z =
+                startZ -
+                easing * angle;
 
-            batsmanBat.rotation.x=
-                startX+
-                e*(
-                    state.shotGesture===6
-                    ?.35
-                    :
-                    .2
+
+            batsmanBat.rotation.x =
+                startX +
+                easing *
+                (
+                    state.shotGesture === 6
+                        ? .35
+                        : .2
                 );
 
-            batsmanBat.rotation.y=
-                startY+
-                follow*twist;
+
+            batsmanBat.rotation.y =
+                startY +
+                follow * twist;
 
 
-            if(t<1){
+            if (
+                t < 1
+            ) {
 
-                requestAnimationFrame(f);
+                requestAnimationFrame(
+                    animateSwing
+                );
 
-            }else{
+            }
+            else {
 
                 batsmanBat.rotation.set(
                     startX,
@@ -1452,66 +1685,94 @@ function swing(){
         };
 
 
-    requestAnimationFrame(f);
+    requestAnimationFrame(
+        animateSwing
+    );
 
 }
 
 
-/* ============================================================
+/* =========================================================
    START BOWLING
-============================================================ */
+========================================================= */
 
-function start(){
+function start() {
 
-    if(
-        state.phase!=='ready'
-    ){
+    if (
+        state.phase !== 'ready'
+    ) {
 
         return;
 
     }
 
 
-    state.phase='run';
+    state.phase =
+        'run';
 
-    state.time=0;
 
-    state.shotTriggered=false;
+    state.time =
+        0;
 
-    state.ballReleased=false;
 
-    // IMPORTANT:
-    // Every new delivery starts with NO gesture.
-    state.shotGesture=0;
+    state.shotTriggered =
+        false;
 
-    state.handDetected=false;
 
-    state.lastHandSeen=0;
+    state.ballReleased =
+        false;
 
-    messageEl.textContent=
-        'Bowler is running in...';
 
-    bowlButton.disabled=true;
+    /*
+       IMPORTANT:
+       Do NOT randomly choose 1/2/4/6.
+
+       Wait for the camera.
+    */
+
+    state.shotGesture =
+        0;
+
+
+    state.handDetected =
+        false;
+
+
+    state.lastHandSeen =
+        0;
+
+
+    state.out =
+        false;
+
+
+    messageEl.textContent =
+        '🏏 Watch the ball and make your gesture!';
+
+
+    bowlButton.disabled =
+        true;
 
 
     bowlerActions.forEach(
-        action=>
-            action
-                .reset()
-                .play()
+        action => {
+
+            action.reset();
+
+            action.play();
+
+        }
     );
 
 
-    batsmanBat=
-        batsman?.userData.cricketBat
-        ||
+    batsmanBat =
+        batsman?.userData.cricketBat ||
         batsmanBat;
 
 
-    if(
-        batsmanBat &&
-        batsmanBat.visible
-    ){
+    if (
+        batsmanBat
+    ) {
 
         batsmanBat.getWorldPosition(
             ballTarget
@@ -1520,10 +1781,13 @@ function start(){
     }
 
 
-    bowlerRoot.userData.deliveryBall=
+    bowlerRoot.userData.deliveryBall =
         ball;
 
-    bowlerRoot.add(ball);
+
+    bowlerRoot.add(
+        ball
+    );
 
 
     ball.position.set(
@@ -1532,16 +1796,23 @@ function start(){
         .35
     );
 
+
     bowlerRoot.localToWorld(
         releasePosition.copy(
             ball.position
         )
     );
 
-    ball.visible=true;
+
+    ball.visible =
+        true;
 
 }
 
+
+/* =========================================================
+   BUTTON
+========================================================= */
 
 bowlButton.addEventListener(
     'click',
@@ -1549,70 +1820,53 @@ bowlButton.addEventListener(
 );
 
 
-/* ============================================================
-   FINISH BALL
-============================================================ */
+/* =========================================================
+   GAME RESULT
+========================================================= */
 
-function finish(){
+function finish() {
 
-    /* --------------------------------------------------------
-       REAL OUT
-    -------------------------------------------------------- */
+    /*
+       WICKET
+    */
 
-    if(state.out){
+    if (
+        state.out
+    ) {
 
-        state.out=false;
-
-        // CHANGE 2:
-        // Wicket +1
-        state.wickets++;
-
-        // CHANGE 2:
-        // Score becomes ZERO
-        state.score=0;
-
-        scoreEl.textContent=
-            state.score;
-
-        wicketEl.textContent=
-            state.wickets;
-
-        messageEl.textContent=
-            'OUT! SCORE RESET TO 0';
+        state.out =
+            false;
 
         state.ball++;
 
-        ballEl.textContent=
-            `${Math.min(
-                state.ball,
-                6
-            )}/6`;
-
 
         setTimeout(
-            ()=>{
+            () => {
 
-                if(
-                    state.ball>6
-                ){
+                if (
+                    state.ball > 6
+                ) {
 
-                    messageEl.textContent=
-                        'OVER COMPLETED! GOOD TRY!';
+                    messageEl.textContent =
+                        '🏁 OVER COMPLETE!';
 
-                    announceOverComplete();
-
-                    state.phase=
+                    state.phase =
                         'complete';
 
-                }else{
+                    playAgainButton.style.display =
+                        'block';
 
-                    state.phase=
+                }
+                else {
+
+                    state.phase =
                         'ready';
 
-                    messageEl.textContent=
+                    messageEl.textContent =
                         'Ready for next ball';
 
-                    bowlButton.disabled=false;
+                    bowlButton.disabled =
+                        false;
 
                 }
 
@@ -1620,68 +1874,71 @@ function finish(){
             950
         );
 
+
         return;
 
     }
 
 
-    /* --------------------------------------------------------
-       CHECK HAND GESTURE
-    -------------------------------------------------------- */
+    /*
+       RUNS
+    */
 
-    const validGesture=
-        [1,2,4,6].includes(
-            state.shotGesture
+    const runs =
+        state.shotGesture;
+
+
+    /*
+       Safety check.
+       A valid shot must be 1, 2, 4 or 6.
+    */
+
+    if (
+        ![1, 2, 4, 6].includes(
+            runs
+        )
+    ) {
+
+        state.out =
+            true;
+
+        window.dispatchEvent(
+            new CustomEvent(
+                'cricket:wicket'
+            )
         );
 
+        finish();
 
-    /* --------------------------------------------------------
-       CHANGE 3:
-       NO HAND GESTURE = DOT BALL + WICKET
-    -------------------------------------------------------- */
-
-    if(!validGesture){
-
-        state.wickets++;
-
-        state.score=0;
-
-        scoreEl.textContent=
-            state.score;
-
-        wicketEl.textContent=
-            state.wickets;
-
-        messageEl.textContent=
-            'DOT BALL — WICKET! SCORE RESET TO 0';
+        return;
 
     }
 
 
-    /* --------------------------------------------------------
-       NORMAL RUN
-    -------------------------------------------------------- */
+    state.score +=
+        runs;
 
-    else{
 
-        const runs=
-            state.shotGesture;
+    if (
+        runs === 6
+    ) {
 
-        state.score+=runs;
+        messageEl.textContent =
+            '🏏 SIX!';
 
-        scoreEl.textContent=
-            state.score;
+    }
+    else if (
+        runs === 4
+    ) {
 
-        messageEl.textContent=
-            runs===6
-            ?
-            'SIX!'
-            :
-            runs===4
-            ?
-            'FOUR!'
-            :
-            `${runs} RUN!`;
+        messageEl.textContent =
+            '🏏 FOUR!';
+
+    }
+    else {
+
+        messageEl.textContent =
+            `🏃 ${runs} RUN${runs > 1 ? 'S' : ''}!`;
 
     }
 
@@ -1689,38 +1946,33 @@ function finish(){
     state.ball++;
 
 
-    // Show the updated ball count.
-    ballEl.textContent=
-        `${Math.min(
-            state.ball,
-            6
-        )}/6`;
-
-
     setTimeout(
-        ()=>{
+        () => {
 
-            if(
-                state.ball>6
-            ){
+            if (
+                state.ball > 6
+            ) {
 
-                messageEl.textContent=
-                    'OVER COMPLETED! GOOD TRY!';
+                messageEl.textContent =
+                    '🏁 OVER COMPLETE!';
 
-                announceOverComplete();
-
-                state.phase=
+                state.phase =
                     'complete';
 
-            }else{
+                playAgainButton.style.display =
+                    'block';
 
-                state.phase=
+            }
+            else {
+
+                state.phase =
                     'ready';
 
-                messageEl.textContent=
+                messageEl.textContent =
                     'Ready for next ball';
 
-                bowlButton.disabled=false;
+                bowlButton.disabled =
+                    false;
 
             }
 
@@ -1731,72 +1983,94 @@ function finish(){
 }
 
 
-/* ============================================================
-   GAME LOOP
-============================================================ */
+/* =========================================================
+   MAIN GAME LOOP
+========================================================= */
 
-const clock=
+const clock =
     new THREE.Clock();
 
 
-function loop(){
+function loop() {
 
     requestAnimationFrame(
         loop
     );
 
 
-    const dt=
+    const dt =
         clock.getDelta();
 
 
-    if(mixer)
-        mixer.update(dt);
+    if (
+        mixer
+    ) {
+
+        mixer.update(
+            dt
+        );
+
+    }
 
 
-    if(bowlerMixer)
-        bowlerMixer.update(dt);
+    if (
+        bowlerMixer
+    ) {
+
+        bowlerMixer.update(
+            dt
+        );
+
+    }
 
 
-    if(
-        state.phase==='run'
-    ){
+    /* =====================================================
+       BALL / BOWLING
+    ===================================================== */
 
-        state.time+=dt;
+    if (
+        state.phase === 'run'
+    ) {
+
+        state.time +=
+            dt;
 
 
-        const t=
+        const t =
             state.time;
 
 
-        const run=
+        const run =
             Math.min(
-                t/2.3,
+                t / 2.3,
                 1
             );
 
 
-        bowlerRoot.position.z=
-            -19+
-            run*5.4;
+        bowlerRoot.position.z =
+            -19 +
+            run * 5.4;
 
 
-        bowlerRoot.position.y=
+        bowlerRoot.position.y =
             Math.abs(
-                Math.sin(t*9)
-            )*.035;
+                Math.sin(
+                    t * 9
+                )
+            ) * .035;
 
 
-        /* ====================================================
-           BALL RELEASE
-        ==================================================== */
+        /* =================================================
+           RELEASE BALL
+        ================================================= */
 
-        if(
-            t>1.7 &&
+        if (
+            t > 1.7 &&
             !state.ballReleased
-        ){
+        ) {
 
-            state.ballReleased=true;
+            state.ballReleased =
+                true;
 
 
             ball.getWorldPosition(
@@ -1819,105 +2093,147 @@ function loop(){
             );
 
 
-            messageEl.textContent=
-                'BOWLER DELIVERS!';
+            messageEl.textContent =
+                '🏏 BOWLER DELIVERS!';
 
         }
 
 
-        if(
-            t>1.8
-        ){
+        if (
+            t > 1.8
+        ) {
 
-            messageEl.textContent=
-                'BOWLER DELIVERS!';
+            /*
+               Don't overwrite the gesture message
+               once the camera has detected a gesture.
+            */
+
+            if (
+                !state.handDetected
+            ) {
+
+                messageEl.textContent =
+                    '🏏 BOWLER DELIVERS!';
+
+            }
 
         }
 
 
-        /* ====================================================
+        /* =================================================
            BALL FLIGHT
-        ==================================================== */
+        ================================================= */
 
-        const f=
+        const f =
             Math.min(
                 Math.max(
-                    (t-1.7)/.78,
+                    (t - 1.7) / .78,
                     0
                 ),
                 1
             );
 
 
-        if(f){
+        if (
+            f
+        ) {
 
             ball.position.set(
 
-                flightStart.x+
-                    f*(
-                        ballTarget.x-
-                        flightStart.x
-                    ),
+                flightStart.x +
+                f *
+                (
+                    ballTarget.x -
+                    flightStart.x
+                ),
 
-                flightStart.y+
-                    f*(
-                        ballTarget.y-
-                        flightStart.y
-                    )+
-                    Math.sin(
-                        f*Math.PI
-                    )*.16,
+                flightStart.y +
+                f *
+                (
+                    ballTarget.y -
+                    flightStart.y
+                ) +
+                Math.sin(
+                    f * Math.PI
+                ) * .16,
 
-                flightStart.z+
-                    f*(
-                        ballTarget.z-
-                        flightStart.z
-                    )
+                flightStart.z +
+                f *
+                (
+                    ballTarget.z -
+                    flightStart.z
+                )
 
             );
 
 
-            ball.rotation.x+=
-                dt*14;
+            ball.rotation.x +=
+                dt * 14;
 
 
             /* =================================================
-               SHOT / GESTURE CHECK
+               SHOT DECISION
             ================================================= */
 
-            if(
-                f>.76 &&
+            if (
+                f > .76 &&
                 !state.shotTriggered
-            ){
+            ) {
 
-                state.shotTriggered=true;
+                state.shotTriggered =
+                    true;
 
 
-                const gestureIsValid=
-                    [1,2,4,6].includes(
+                const gestureIsValid =
+                    state.handDetected &&
+                    [1, 2, 4, 6].includes(
                         state.shotGesture
                     );
 
 
-                if(
+                /*
+                   VALID GESTURE
+                */
+
+                if (
                     gestureIsValid
-                ){
+                ) {
+
+                    console.log(
+                        '🏏 PLAYING SHOT:',
+                        state.shotGesture
+                    );
+
+
+                    messageEl.textContent =
+                        `🏏 ${state.shotGesture} gesture!`;
+
 
                     swing();
 
-                }else{
+                }
 
-                    /*
-                       No gesture.
 
-                       DO NOT add the wicket here.
+                /*
+                   NO VALID GESTURE
+                */
 
-                       finish() will add exactly ONE
-                       wicket and reset the score to 0.
-                    */
+                else {
 
-                    messageEl.textContent=
-                        'NO HAND GESTURE';
+                    console.log(
+                        '❌ NO VALID GESTURE - WICKET'
+                    );
+
+
+                    state.out =
+                        true;
+
+
+                    window.dispatchEvent(
+                        new CustomEvent(
+                            'cricket:wicket'
+                        )
+                    );
 
                 }
 
@@ -1926,18 +2242,21 @@ function loop(){
         }
 
 
-        /* ====================================================
-           END OF BALL
-        ==================================================== */
+        /* =================================================
+           BALL FINISHED
+        ================================================= */
 
-        if(
-            t>2.48
-        ){
+        if (
+            t > 2.48
+        ) {
 
-            ball.visible=false;
+            ball.visible =
+                false;
 
-            state.phase=
+
+            state.phase =
                 'result';
+
 
             finish();
 
@@ -1946,28 +2265,28 @@ function loop(){
     }
 
 
-    /* ========================================================
-       SCOREBOARD
-    ======================================================== */
+    /* =====================================================
+       UI
+    ===================================================== */
 
-    scoreEl.textContent=
+    scoreEl.textContent =
         state.score;
 
-    wicketEl.textContent=
+
+    wicketEl.textContent =
         state.wickets;
 
-    // CHANGE 1:
-    // This now correctly starts at 0/6.
-    ballEl.textContent=
+
+    ballEl.textContent =
         `${Math.min(
             state.ball,
             6
         )}/6`;
 
 
-    /* ========================================================
+    /* =====================================================
        RENDER
-    ======================================================== */
+    ===================================================== */
 
     renderer.render(
         scene,
@@ -1980,16 +2299,41 @@ function loop(){
 loop();
 
 
-/* ============================================================
-   RESIZE
-============================================================ */
+/* =========================================================
+   OVER COMPLETE MESSAGE
+========================================================= */
+
+setInterval(
+    () => {
+
+        if (
+            typeof state !== 'undefined' &&
+            state.phase === 'complete'
+        ) {
+
+            messageEl.textContent =
+                '🏁 OVER COMPLETED! GOOD TRY!';
+
+            playAgainButton.style.display =
+                'block';
+
+        }
+
+    },
+    100
+);
+
+
+/* =========================================================
+   WINDOW RESIZE
+========================================================= */
 
 addEventListener(
     'resize',
-    ()=>{
+    () => {
 
-        camera.aspect=
-            innerWidth/
+        camera.aspect =
+            innerWidth /
             innerHeight;
 
         camera.updateProjectionMatrix();
