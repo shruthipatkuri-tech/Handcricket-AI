@@ -308,47 +308,6 @@ playAgainButton.addEventListener(
    TEST GESTURE PANEL
 ========================================================= */
 
-const testPanel = $('#testPanel');
-const testGesture1 = $('#testGesture1');
-const testGesture4 = $('#testGesture4');
-const testGesture6 = $('#testGesture6');
-
-if (testGesture1) {
-    testGesture1.addEventListener('click', () => {
-        console.log('🧪 TEST: Emitting gesture 1');
-        state.shotGesture = 1;
-        state.handDetected = true;
-        messageEl.textContent = '🧪 Gesture 1 (test)';
-        window.dispatchEvent(new CustomEvent('cricket:camera-gesture', { detail: { gesture: 1 } }));
-    });
-}
-
-if (testGesture4) {
-    testGesture4.addEventListener('click', () => {
-        console.log('🧪 TEST: Emitting gesture 4');
-        state.shotGesture = 4;
-        state.handDetected = true;
-        messageEl.textContent = '🧪 Gesture 4 (test)';
-        window.dispatchEvent(new CustomEvent('cricket:camera-gesture', { detail: { gesture: 4 } }));
-    });
-}
-
-if (testGesture6) {
-    testGesture6.addEventListener('click', () => {
-        console.log('🧪 TEST: Emitting gesture 6');
-        state.shotGesture = 6;
-        state.handDetected = true;
-        messageEl.textContent = '🧪 Gesture 6 (test)';
-        window.dispatchEvent(new CustomEvent('cricket:camera-gesture', { detail: { gesture: 6 } }));
-    });
-}
-
-// Show test panel if we're not in production
-if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
-    if (testPanel) {
-        testPanel.style.display = 'block';
-    }
-}
 
 
 /* =========================================================
