@@ -43,6 +43,48 @@ const loadingEl =
 const errorEl =
     $('#error');
 
+const cameraPrompt =
+    $('#cameraPrompt');
+
+const allowCameraButton =
+    $('#allowCameraButton');
+
+const skipCameraButton =
+    $('#skipCameraButton');
+
+
+function showCameraPrompt() {
+
+    if (
+        cameraPrompt
+    ) {
+
+        cameraPrompt.classList.remove(
+            'hidden'
+        );
+
+    }
+
+}
+
+
+function hideCameraPrompt() {
+
+    if (
+        cameraPrompt
+    ) {
+
+        cameraPrompt.classList.add(
+            'hidden'
+        );
+
+    }
+
+}
+
+window.__cameraPermissionGranted = false;
+window.__cameraPermissionAsked = false;
+
 
 /* =========================================================
    GAME STATE
@@ -54,7 +96,7 @@ const state = {
 
     wickets: 0,
 
-    ball: 1,
+    ball: 0,
 
     totalBalls: 6,
 
@@ -94,14 +136,21 @@ window.addEventListener(
     'cricket:camera-gesture',
     (event) => {
 
+        const gesture =
+            Number(event.detail?.gesture);
+
+        console.log(
+            `📸 GESTURE RECEIVED: ${gesture}, phase: ${state.phase}`
+        );
+
         if (
             state.phase !== 'run'
         ) {
+            console.log(
+                `❌ GESTURE IGNORED - phase is ${state.phase}, not 'run'`
+            );
             return;
         }
-
-        const gesture =
-            Number(event.detail?.gesture);
 
         if (
             [1, 2, 4, 6].includes(gesture)
@@ -117,7 +166,7 @@ window.addEventListener(
                 performance.now();
 
             console.log(
-                '🏏 GESTURE DETECTED:',
+                '🏏 GESTURE ACCEPTED:',
                 gesture
             );
 
@@ -200,7 +249,7 @@ playAgainButton.addEventListener(
 
         state.wickets = 0;
 
-        state.ball = 1;
+        state.ball = 0;
 
         state.phase = 'ready';
 
@@ -225,7 +274,7 @@ playAgainButton.addEventListener(
             '0';
 
         ballEl.textContent =
-            '1/6';
+            '0/6';
 
         messageEl.textContent =
             'Ready for next ball';
@@ -253,6 +302,53 @@ playAgainButton.addEventListener(
 
     }
 );
+
+
+/* =========================================================
+   TEST GESTURE PANEL
+========================================================= */
+
+const testPanel = $('#testPanel');
+const testGesture1 = $('#testGesture1');
+const testGesture4 = $('#testGesture4');
+const testGesture6 = $('#testGesture6');
+
+if (testGesture1) {
+    testGesture1.addEventListener('click', () => {
+        console.log('🧪 TEST: Emitting gesture 1');
+        state.shotGesture = 1;
+        state.handDetected = true;
+        messageEl.textContent = '🧪 Gesture 1 (test)';
+        window.dispatchEvent(new CustomEvent('cricket:camera-gesture', { detail: { gesture: 1 } }));
+    });
+}
+
+if (testGesture4) {
+    testGesture4.addEventListener('click', () => {
+        console.log('🧪 TEST: Emitting gesture 4');
+        state.shotGesture = 4;
+        state.handDetected = true;
+        messageEl.textContent = '🧪 Gesture 4 (test)';
+        window.dispatchEvent(new CustomEvent('cricket:camera-gesture', { detail: { gesture: 4 } }));
+    });
+}
+
+if (testGesture6) {
+    testGesture6.addEventListener('click', () => {
+        console.log('🧪 TEST: Emitting gesture 6');
+        state.shotGesture = 6;
+        state.handDetected = true;
+        messageEl.textContent = '🧪 Gesture 6 (test)';
+        window.dispatchEvent(new CustomEvent('cricket:camera-gesture', { detail: { gesture: 6 } }));
+    });
+}
+
+// Show test panel if we're not in production
+if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
+    if (testPanel) {
+        testPanel.style.display = 'block';
+    }
+}
 
 
 /* =========================================================
@@ -1696,63 +1792,37 @@ function swing() {
    START BOWLING
 ========================================================= */
 
-function start() {
-
-    if (
-        state.phase !== 'ready'
-    ) {
-
-        return;
-
-    }
-
+function beginMatch() {
 
     state.phase =
         'run';
 
-
     state.time =
         0;
-
 
     state.shotTriggered =
         false;
 
-
     state.ballReleased =
         false;
-
-
-    /*
-       IMPORTANT:
-       Do NOT randomly choose 1/2/4/6.
-
-       Wait for the camera.
-    */
 
     state.shotGesture =
         0;
 
-
     state.handDetected =
         false;
-
 
     state.lastHandSeen =
         0;
 
-
     state.out =
         false;
-
 
     messageEl.textContent =
         '🏏 Watch the ball and make your gesture!';
 
-
     bowlButton.disabled =
         true;
-
 
     bowlerActions.forEach(
         action => {
@@ -1764,11 +1834,9 @@ function start() {
         }
     );
 
-
     batsmanBat =
         batsman?.userData.cricketBat ||
         batsmanBat;
-
 
     if (
         batsmanBat
@@ -1780,15 +1848,12 @@ function start() {
 
     }
 
-
     bowlerRoot.userData.deliveryBall =
         ball;
-
 
     bowlerRoot.add(
         ball
     );
-
 
     ball.position.set(
         .58,
@@ -1796,16 +1861,44 @@ function start() {
         .35
     );
 
-
     bowlerRoot.localToWorld(
         releasePosition.copy(
             ball.position
         )
     );
 
-
     ball.visible =
         true;
+
+}
+
+
+async function start() {
+
+    if (
+        state.phase !== 'ready'
+    ) {
+
+        return;
+
+    }
+
+    // Only ask for camera once
+    if (
+        typeof window.requestCameraAccess === 'function' &&
+        !window.__cameraPermissionAsked
+    ) {
+
+        window.__cameraPermissionAsked = true;
+        showCameraPrompt();
+        messageEl.textContent =
+            'Allow camera access to let hand gestures work.';
+        return;
+
+    }
+
+    hideCameraPrompt();
+    beginMatch();
 
 }
 
@@ -1817,6 +1910,44 @@ function start() {
 bowlButton.addEventListener(
     'click',
     start
+);
+
+allowCameraButton?.addEventListener(
+    'click',
+    async () => {
+
+        hideCameraPrompt();
+
+        if (
+            typeof window.requestCameraAccess === 'function'
+        ) {
+
+            const cameraReady = await window.requestCameraAccess();
+            if (!cameraReady) {
+                messageEl.textContent =
+                    'Camera blocked. Please allow it in browser settings.';
+                return;
+            }
+
+        }
+
+        window.__cameraPermissionGranted = true;
+        beginMatch();
+
+    }
+);
+
+skipCameraButton?.addEventListener(
+    'click',
+    () => {
+
+        hideCameraPrompt();
+        window.__cameraPermissionGranted = false;
+        messageEl.textContent =
+            'Camera skipped. Use button control without hand gestures.';
+        beginMatch();
+
+    }
 );
 
 
